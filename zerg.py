@@ -1,6 +1,7 @@
 #!/usr/local/bin/python
 
 from random import randint, choice
+import time
 
 class Drone:
 
@@ -8,6 +9,9 @@ class Drone:
         self.deployed = False
         self.drop_zone = [0, 0]
         self.found_corner = False
+        self.direction = 'EAST'
+        self.opposite = 'EAST'
+        self.north_spaces = 0
 
     def seekCorner(self, context):
         if context.south not in "#~":
@@ -15,10 +19,43 @@ class Drone:
         elif context.west not in "#~":
             return 'WEST'
         else:
+            self.direction = 'NORTH'
+            self.found_corner = True
             return 'NEXT'
 
     def scan(self, context):
-        pass
+        if self.direction == 'NORTH' and self.north_spaces < 1 and context.north not in '#':
+            self.north_spaces += 1
+            self.direction = 'NORTH'
+
+        elif self.direction == 'NORTH' and self.north_spaces == 1:
+            self.north_spaces = 0
+            self.direction = self.opposite
+            if self.opposite == 'EAST':
+                self.direction = 'EAST'
+                self.opposite = 'WEST'
+            elif self.opposite == 'WEST':
+                self.direction = 'WEST'
+                self.opposite = 'EAST'
+
+        elif self.direction == 'EAST' and context.east not in "#":
+            self.direction = 'EAST'
+
+        elif self.direction == 'EAST' and context.north not in "#":
+            self.direction = 'NORTH'
+
+        elif self.direction == 'WEST' and context.west not in "#":
+            self.direction = 'WEST'
+
+        elif self.direction == 'WEST' and context.north not in "#":
+            self.direction = 'NORTH'
+
+        else:
+            self.direction = 'PASS'
+            self.north_spaces = 0
+
+        print("scanning", self.direction)
+        return self.direction
 
     def mineralCheck(self, context):
         if context.north in "*":
@@ -54,6 +91,9 @@ class Drone:
             else:
                 return 'STAY'
 
+        else:
+            check = self.scan(context)
+            return check
 
 
 #    def move(self, context):
@@ -87,7 +127,7 @@ class Overlord:
         self.maps[map_id] = summary
 
     def action(self):
-        #if self.zerg[self.IDs[2]].deployed == False:
+        time.sleep(1)#REMOVE THIS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         if self.num_deployed < 3:
             for zergling in self.zerg:
                 if self.zerg[zergling].deployed == True:
