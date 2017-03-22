@@ -12,11 +12,17 @@ class Drone:
         self.direction = 'EAST'
         self.opposite = 'EAST'
         self.north_spaces = 0
+        self.avoiding = False
+        self.axis = 0
+        self.vert = ('NORTH', 'SOUTH')
+        self.horiz = ('EAST', 'WEST')
 
     def seekCorner(self, context):
         if context.south not in "#~":
+            self.axis = context.x
             return 'SOUTH'
         elif context.west not in "#~":
+            self.axis = context.y
             return 'WEST'
         else:
             self.direction = 'NORTH'
@@ -24,35 +30,57 @@ class Drone:
             return 'NEXT'
 
     def scan(self, context):
+
+        path = context.north
         if self.direction == 'NORTH' and self.north_spaces < 1 and context.north not in '#':
             self.north_spaces += 1
             self.direction = 'NORTH'
+            path = context.north
+            self.axis = context.x
 
         elif self.direction == 'NORTH' and self.north_spaces == 1:
             self.north_spaces = 0
             self.direction = self.opposite
             if self.opposite == 'EAST':
                 self.direction = 'EAST'
+                path = context.east
+                self.axis = context.y
                 self.opposite = 'WEST'
             elif self.opposite == 'WEST':
                 self.direction = 'WEST'
+                path = context.west
+                self.axis = context.y
                 self.opposite = 'EAST'
 
         elif self.direction == 'EAST' and context.east not in "#":
             self.direction = 'EAST'
+            self.axis = context.y
+            path = context.east
 
         elif self.direction == 'EAST' and context.north not in "#":
             self.direction = 'NORTH'
+            self.axis = context.y
+            path = context.north
 
         elif self.direction == 'WEST' and context.west not in "#":
             self.direction = 'WEST'
+            self.axis = context.y
+            path = context.west
 
         elif self.direction == 'WEST' and context.north not in "#":
             self.direction = 'NORTH'
+            self.axis = context.x
+            path = context.north
 
         else:
             self.direction = 'PASS'
             self.north_spaces = 0
+
+        print("DIR", self.direction)
+        # Check if avoidance needs to happen.
+        if path in "~#":
+            if context.north not in '#':
+                return 'NORTH'
 
         print("scanning", self.direction)
         return self.direction
@@ -73,6 +101,26 @@ class Drone:
         else:
             return 'NEXT'
 
+    def avoid(self, context):
+
+        path = None
+        if self.direction == "EAST":
+            path = context.east
+        elif self.direction == "WEST":
+            path = context.west
+        elif self.direction == "NORTH":
+            path = context.north
+        elif self.direction == "SOUTH":
+            path = context.south
+
+        if path in "~#":
+            print("DODGE SOUTH")
+            return 'SOUTH'
+        else:
+            self.avoiding = False
+            return self.direction
+
+
     def move(self, context):
         # Check if unit was just deployed.
         if self.deployed == False:
@@ -84,7 +132,13 @@ class Drone:
         if check is not 'NEXT':
             return check
 
+#        if self.avoiding:
+#            print("AVOIDING")
+#            check = self.avoid(context)
+#            return check
+
         if self.found_corner == False:
+            print("SEEKING CORNER")
             check = self.seekCorner(context)
             if check is not 'NEXT':
                 return check
@@ -92,22 +146,11 @@ class Drone:
                 return 'STAY'
 
         else:
+            print("SCAN!")
             check = self.scan(context)
             return check
 
 
-#    def move(self, context):
-#        new = randint(0, 3)
-#        if new == 0 and context.north in '* ':
-#            return 'NORTH'
-#        elif new == 1 and context.south in '* ':
-#            return 'SOUTH'
-#        elif new == 2 and context.east in '* ':
-#            return 'EAST'
-#        elif new == 3 and context.west in '* ':
-#            return 'WEST'
-#        else:
-#            return 'CENTER'
 
 class Overlord:
     def __init__(self, total_ticks):
@@ -116,6 +159,7 @@ class Overlord:
         self.map_num = 0
         self.num_deployed = 0
         self.IDs = []
+        self.ticks = total_ticks
 
         for _ in range(6):
             z = Drone()
@@ -128,6 +172,8 @@ class Overlord:
 
     def action(self):
         time.sleep(1)#REMOVE THIS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        self.ticks -= 1
+        print("ticks:", self.ticks)
         if self.num_deployed < 3:
             for zergling in self.zerg:
                 if self.zerg[zergling].deployed == True:
