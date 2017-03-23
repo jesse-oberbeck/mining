@@ -3,7 +3,7 @@
 from map import Map
 import zerg
 
-TICKS = 1000
+TICKS = 300
 
 c = zerg.Overlord(TICKS)
 

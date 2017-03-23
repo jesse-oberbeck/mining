@@ -16,12 +16,14 @@ class Drone:
         self.axis = 0
         self.vert = ('NORTH', 'SOUTH')
         self.horiz = ('EAST', 'WEST')
+        self.signal = False
+        self.beacon = False
 
     def seekCorner(self, context):
         if context.south not in "#~":
             self.axis = context.x
             return 'SOUTH'
-        elif context.west not in "#~":
+        elif context.west not in "#":
             self.axis = context.y
             return 'WEST'
         else:
@@ -73,6 +75,7 @@ class Drone:
             path = context.north
 
         else:
+            self.signal = True
             self.direction = 'PASS'
             self.north_spaces = 0
 
@@ -120,12 +123,47 @@ class Drone:
             self.avoiding = False
             return self.direction
 
+    def turn_in(self, context):
+        print("GOIN HOME")
+        x = context.x
+        y = context.y
+        x_diff = x - self.drop_zone[0]
+        y_diff = y - self.drop_zone[1]
+        if x == self.drop_zone[0] and y == self.drop_zone[1]:
+            print('on DZ')
+            self.beacon = True
+
+        elif abs(x_diff) > abs(y_diff):
+            if x > self.drop_zone[0]:
+                print('west')
+                return 'WEST'
+            else:
+                print('east')
+                return 'EAST'
+
+        elif abs(x_diff) <= abs(y_diff):
+            if y > self.drop_zone[1]:
+                print('south')
+                return 'SOUTH'
+            else:
+                print('north')
+                return 'NORTH'
+
+        else:
+            print("on DZ...")
+            self.beacon = True
+            return 'WAITING'
 
     def move(self, context):
+
+        if self.signal:
+            check = self.turn_in(context)
+            return check
+
         # Check if unit was just deployed.
         if self.deployed == False:
             self.drop_zone = [context.x, context.y]
-            print(self.drop_zone[0], self.drop_zone[1])
+            print("DROP ZONE:", self.drop_zone[0], self.drop_zone[1])
             self.deployed = True
 
         check = self.mineralCheck(context)
@@ -160,18 +198,33 @@ class Overlord:
         self.num_deployed = 0
         self.IDs = []
         self.ticks = total_ticks
+        self.signal = False
+        self.mark = self.ticks * .2 # 20% of ticks remaining.
 
         for _ in range(6):
             z = Drone()
             self.zerg[id(z)] = z
             self.IDs.append(id(z))
 
+    def signal_zerg(self):
+        for unit in self.zerg:
+            self.zerg[unit].signal = True
 
     def add_map(self, map_id, summary):
         self.maps[map_id] = summary
 
     def action(self):
-        time.sleep(1)#REMOVE THIS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        if self.ticks == self.mark:
+            self.signal = True
+            self.signal_zerg()
+        elif self.ticks < self.mark:
+            print("ATTEMPTING RETURNS")
+            for unit in self.IDs:
+                if self.zerg[unit].deployed == True and self.zerg[unit].beacon == True:
+                    self.zerg[unit].deployed = False
+                    return 'RETURN {}'.format(unit)
+
+        time.sleep(.25)#REMOVE THIS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         self.ticks -= 1
         print("ticks:", self.ticks)
         if self.num_deployed < 3:
@@ -181,7 +234,7 @@ class Overlord:
                 else:
                     tempnum = self.map_num
                     print("Deploying", zergling, "to map", tempnum)
-                    self.zerg[zergling].deployed = True
+                    #self.zerg[zergling].deployed = True
                     self.map_num += 1
                     self.num_deployed += 1
                     self.map_num = self.map_num % 3
