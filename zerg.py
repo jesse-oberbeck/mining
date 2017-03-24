@@ -11,14 +11,14 @@ class Drone:
         self.found_corner = False
         self.direction = 'EAST'
         self.opposite = 'EAST'
-        self.north_spaces = 0
+        self.vert_spaces = 0
         self.avoiding = False
         self.axis = 0
-        self.vert = ('NORTH', 'SOUTH')
-        self.horiz = ('EAST', 'WEST')
         self.signal = False
         self.beacon = False
         self.type = None
+        self.phase = 'NORTH'
+        self.recurse = 0
 
     def seekCorner(self, context):
         if context.south not in "#~":
@@ -34,15 +34,22 @@ class Drone:
 
     def scan(self, context):
 
-        path = context.north
-        if self.direction == 'NORTH' and self.north_spaces < 1 and context.north not in '#':
-            self.north_spaces += 1
-            self.direction = 'NORTH'
-            path = context.north
+        vert = None
+
+        if self.phase == 'NORTH':
+            vert = context.north
+        elif self.phase == 'SOUTH':
+            vert = context.south
+
+        path = vert
+        if self.direction == self.phase and self.vert_spaces < 1 and vert not in '#':
+            self.vert_spaces += 1
+            self.direction = self.phase
+            path = vert
             self.axis = context.x
 
-        elif self.direction == 'NORTH' and self.north_spaces == 1:
-            self.north_spaces = 0
+        elif self.direction == self.phase and self.vert_spaces == 1:
+            self.vert_spaces = 0
             self.direction = self.opposite
             if self.opposite == 'EAST':
                 self.direction = 'EAST'
@@ -60,31 +67,36 @@ class Drone:
             self.axis = context.y
             path = context.east
 
-        elif self.direction == 'EAST' and context.north not in "#":
-            self.direction = 'NORTH'
+        elif self.direction == 'EAST' and vert not in "#":
+            self.direction = self.phase
             self.axis = context.y
-            path = context.north
+            path = vert
 
         elif self.direction == 'WEST' and context.west not in "#":
             self.direction = 'WEST'
             self.axis = context.y
             path = context.west
 
-        elif self.direction == 'WEST' and context.north not in "#":
-            self.direction = 'NORTH'
+        elif self.direction == 'WEST' and vert not in "#":
+            self.direction = self.phase
             self.axis = context.x
-            path = context.north
+            path = vert
 
         else:
-            self.signal = True
-            self.direction = 'PASS'
-            self.north_spaces = 0
+            if self.phase == 'SOUTH':
+                self.signal = True
+            self.phase = 'SOUTH'
+            print("PHASE CHANGE", self.phase)
+            self.direction = 'SOUTH'
+            self.vert_spaces = 0
 
         print("DIR", self.direction)
         # Check if avoidance needs to happen.
         if path in "~#":
-            if context.north not in '#':
-                return 'NORTH'
+            if vert not in '#':
+                return self.phase
+        if path in "Z":
+            return 'WAIT'
 
         print("scanning", self.direction)
         return self.direction
@@ -105,26 +117,9 @@ class Drone:
         else:
             return 'NEXT'
 
-    def avoid(self, context):
-
-        path = None
-        if self.direction == "EAST":
-            path = context.east
-        elif self.direction == "WEST":
-            path = context.west
-        elif self.direction == "NORTH":
-            path = context.north
-        elif self.direction == "SOUTH":
-            path = context.south
-
-        if path in "~#":
-            print("DODGE SOUTH")
-            return 'SOUTH'
-        else:
-            self.avoiding = False
-            return self.direction
 
     def bounce(self, context):
+
         directions = ["NORTH", "SOUTH", "EAST", "WEST"]
         heading = None
         if self.direction == "NORTH":
@@ -136,9 +131,13 @@ class Drone:
         if self.direction == "WEST":
             heading = context.west
 
-        if heading in "#~Z":
+        if heading in "#~Z" or randint(0, 20) == 6:
             directions.remove(self.direction)
             self.direction = choice(directions)
+            self.recurse += 1
+            if self.recurse == 50:
+                self.recurse = 0
+                return 'STAY'
             self.bounce(context)
 
         return self.direction
@@ -157,17 +156,25 @@ class Drone:
         elif abs(x_diff) > abs(y_diff):
             if x > self.drop_zone[0]:
                 print('west')
+                if context.west in "Z":
+                    return 'WAIT'
                 return 'WEST'
             else:
                 print('east')
+                if context.east in "Z":
+                    return 'WAIT'
                 return 'EAST'
 
         elif abs(x_diff) <= abs(y_diff):
             if y > self.drop_zone[1]:
                 print('south')
+                if context.south in "Z":
+                    return 'WAIT'
                 return 'SOUTH'
             else:
                 print('north')
+                if context.north in "Z":
+                    return 'WAIT'
                 return 'NORTH'
 
         else:
@@ -191,10 +198,6 @@ class Drone:
             check = self.turn_in(context)
             return check
 
-#        if self.avoiding:
-#            print("AVOIDING")
-#            check = self.avoid(context)
-#            return check
 
         if self.found_corner == False and self.type == 'SCANNER':
             print("SEEKING CORNER")
@@ -285,12 +288,3 @@ class Overlord:
 
         else:
             return 'PASS'
-
-#    def action(self):
-#        act = randint(0, 3)
-#        if act == 0:
-#            pass#return 'RETURN {}'.format(choice(list(self.zerg.keys())))
-#        else:
-#            return 'DEPLOY {} {}'.format(choice(list(self.zerg.keys())),
-#                    choice(list(self.maps.keys())))
-
