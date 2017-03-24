@@ -18,6 +18,7 @@ class Drone:
         self.horiz = ('EAST', 'WEST')
         self.signal = False
         self.beacon = False
+        self.type = None
 
     def seekCorner(self, context):
         if context.south not in "#~":
@@ -123,6 +124,26 @@ class Drone:
             self.avoiding = False
             return self.direction
 
+    def bounce(self, context):
+        directions = ["NORTH", "SOUTH", "EAST", "WEST"]
+        heading = None
+        if self.direction == "NORTH":
+            heading = context.north
+        if self.direction == "SOUTH":
+            heading = context.south
+        if self.direction == "EAST":
+            heading = context.east
+        if self.direction == "WEST":
+            heading = context.west
+
+        if heading in "#~Z":
+            directions.remove(self.direction)
+            self.direction = choice(directions)
+            self.bounce(context)
+
+        return self.direction
+
+
     def turn_in(self, context):
         print("GOIN HOME")
         x = context.x
@@ -156,10 +177,6 @@ class Drone:
 
     def move(self, context):
 
-        if self.signal:
-            check = self.turn_in(context)
-            return check
-
         # Check if unit was just deployed.
         if self.deployed == False:
             self.drop_zone = [context.x, context.y]
@@ -170,12 +187,16 @@ class Drone:
         if check is not 'NEXT':
             return check
 
+        if self.signal:
+            check = self.turn_in(context)
+            return check
+
 #        if self.avoiding:
 #            print("AVOIDING")
 #            check = self.avoid(context)
 #            return check
 
-        if self.found_corner == False:
+        if self.found_corner == False and self.type == 'SCANNER':
             print("SEEKING CORNER")
             check = self.seekCorner(context)
             if check is not 'NEXT':
@@ -183,11 +204,15 @@ class Drone:
             else:
                 return 'STAY'
 
-        else:
+        elif self.type == 'SCANNER':
             print("SCAN!")
             check = self.scan(context)
             return check
 
+        elif self.type == 'ROOMBA':
+            print("ROOMBA!")
+            check = self.bounce(context)
+            return check
 
 
 class Overlord:
@@ -228,6 +253,7 @@ class Overlord:
         self.ticks -= 1
         print("ticks:", self.ticks)
         if self.num_deployed < 3:
+            print("DEPLOYING SCANNER")
             for zergling in self.zerg:
                 if self.zerg[zergling].deployed == True:
                     pass
@@ -235,11 +261,28 @@ class Overlord:
                     tempnum = self.map_num
                     print("Deploying", zergling, "to map", tempnum)
                     #self.zerg[zergling].deployed = True
+                    self.zerg[zergling].type = 'SCANNER'
                     self.map_num += 1
                     self.num_deployed += 1
                     self.map_num = self.map_num % 3
                     return 'DEPLOY {} {}'.format(zergling, tempnum)
-                    
+
+        elif self.num_deployed < 6:
+            print("DEPLOYING ROOMBA")
+            for zergling in self.zerg:
+                if self.zerg[zergling].deployed == True:
+                    pass
+                else:
+                    tempnum = self.map_num
+                    print("Deploying", zergling, "to map", tempnum)
+                    #self.zerg[zergling].deployed = True
+                    self.zerg[zergling].type = 'ROOMBA'
+                    self.map_num += 1
+                    self.num_deployed += 1
+                    self.map_num = self.map_num % 3
+                    return 'DEPLOY {} {}'.format(zergling, tempnum)
+
+
         else:
             return 'PASS'
 
