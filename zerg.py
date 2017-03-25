@@ -186,7 +186,7 @@ class Drone:
                 else:
                     return 'EAST'
 
-        elif abs(x_diff) <= abs(y_diff):
+        else:
             if y > self.drop_zone[1]:
                 print('south')
                 if context.south in "Z":
@@ -197,11 +197,6 @@ class Drone:
                 if context.north in "Z":
                     return 'WAIT'
                 return 'NORTH'
-
-        else:
-            print("on DZ...")
-            self.beacon = True
-            return 'WAITING'
 
     def move(self, context):
 
