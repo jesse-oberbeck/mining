@@ -1,7 +1,6 @@
 #!/usr/local/bin/python
 
 from random import randint, choice
-import time
 
 
 class Drone:
@@ -259,7 +258,6 @@ class Overlord:
                     self.zerg[unit].deployed = False
                     return 'RETURN {}'.format(unit)
 
-        # time.sleep(.25)  # Was used for visual purposes.
         self.ticks -= 1
 
         # Sends the first wave of zerg to methodically scan.
