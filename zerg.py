@@ -3,6 +3,7 @@
 from random import randint, choice
 import time
 
+
 class Drone:
 
     def __init__(self):
@@ -21,6 +22,10 @@ class Drone:
         self.recurse = 0
 
     def seekCorner(self, context):
+
+        # Before starting it's complete search(scan) the zerg is first
+        # sent to the corner, where it can appropriately begin.
+
         if context.south not in "#~":
             self.axis = context.x
             return 'SOUTH'
@@ -34,6 +39,10 @@ class Drone:
 
     def scan(self, context):
 
+        # Goes from the bottom of the map to the top, weaving side to side
+        # as it does so, turning around and weaving toward the bottom
+        # once it has reached the top.
+
         vert = None
 
         if self.phase == 'NORTH':
@@ -42,7 +51,8 @@ class Drone:
             vert = context.south
 
         path = vert
-        if self.direction == self.phase and self.vert_spaces < 1 and vert not in '#':
+        if self.direction == self.phase and self.vert_spaces\
+        < 1 and vert not in '#':
             self.vert_spaces += 1
             self.direction = self.phase
             path = vert
@@ -102,6 +112,10 @@ class Drone:
         return self.direction
 
     def mineralCheck(self, context):
+
+        # Pre-empts other movements if minerals are around
+        # to mine said minerals.
+
         if context.north in "*":
             print("Mineral found N")
             return 'NORTH'
@@ -117,8 +131,10 @@ class Drone:
         else:
             return 'NEXT'
 
-
     def bounce(self, context):
+
+        # The zerg goes straight in a random direction until an
+        # obstacle is encountered, or at random intervals.
 
         directions = ["NORTH", "SOUTH", "EAST", "WEST"]
         heading = None
@@ -142,11 +158,14 @@ class Drone:
 
         return self.direction
 
-
     def turn_in(self, context):
+
+        # Brings the zerg closer to the landing zone.
+
         print("GOIN HOME")
         x = context.x
         y = context.y
+        obstacle = False
         x_diff = x - self.drop_zone[0]
         y_diff = y - self.drop_zone[1]
         if x == self.drop_zone[0] and y == self.drop_zone[1]:
@@ -158,12 +177,14 @@ class Drone:
                 print('west')
                 if context.west in "Z":
                     return 'WAIT'
-                return 'WEST'
+                else:
+                    return 'WEST'
             else:
                 print('east')
                 if context.east in "Z":
                     return 'WAIT'
-                return 'EAST'
+                else:
+                    return 'EAST'
 
         elif abs(x_diff) <= abs(y_diff):
             if y > self.drop_zone[1]:
@@ -184,8 +205,11 @@ class Drone:
 
     def move(self, context):
 
+        # Base movement function, determines which movement method to use,
+        # and returns the result of that method.
+
         # Check if unit was just deployed.
-        if self.deployed == False:
+        if self.deployed is False:
             self.drop_zone = [context.x, context.y]
             print("DROP ZONE:", self.drop_zone[0], self.drop_zone[1])
             self.deployed = True
@@ -198,8 +222,7 @@ class Drone:
             check = self.turn_in(context)
             return check
 
-
-        if self.found_corner == False and self.type == 'SCANNER':
+        if self.found_corner is False and self.type == 'SCANNER':
             print("SEEKING CORNER")
             check = self.seekCorner(context)
             if check is not 'NEXT':
@@ -227,7 +250,7 @@ class Overlord:
         self.IDs = []
         self.ticks = total_ticks
         self.signal = False
-        self.mark = self.ticks * .2 # 20% of ticks remaining.
+        self.mark = self.ticks * .2  # 20% of ticks remaining.
 
         for _ in range(6):
             z = Drone()
@@ -235,6 +258,9 @@ class Overlord:
             self.IDs.append(id(z))
 
     def signal_zerg(self):
+
+        # Tells the zerg units to head to the landing zone.
+
         for unit in self.zerg:
             self.zerg[unit].signal = True
 
@@ -242,49 +268,54 @@ class Overlord:
         self.maps[map_id] = summary
 
     def action(self):
+
+        # Deploys and returns zerg.
+
         if self.ticks == self.mark:
             self.signal = True
             self.signal_zerg()
         elif self.ticks < self.mark:
             print("ATTEMPTING RETURNS")
             for unit in self.IDs:
-                if self.zerg[unit].deployed == True and self.zerg[unit].beacon == True:
+                if self.zerg[unit].deployed is True\
+                and self.zerg[unit].beacon is True:
                     self.zerg[unit].deployed = False
                     return 'RETURN {}'.format(unit)
 
-        time.sleep(.25)#REMOVE THIS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # time.sleep(.25)  # Was used for visual purposes.
         self.ticks -= 1
         print("ticks:", self.ticks)
+
+        # Sends the first wave of zerg to methodically scan.
         if self.num_deployed < 3:
             print("DEPLOYING SCANNER")
             for zergling in self.zerg:
-                if self.zerg[zergling].deployed == True:
+                if self.zerg[zergling].deployed is True:
                     pass
                 else:
                     tempnum = self.map_num
                     print("Deploying", zergling, "to map", tempnum)
-                    #self.zerg[zergling].deployed = True
                     self.zerg[zergling].type = 'SCANNER'
                     self.map_num += 1
                     self.num_deployed += 1
                     self.map_num = self.map_num % 3
                     return 'DEPLOY {} {}'.format(zergling, tempnum)
 
+        # Sends the second wave of zerg to bounce about.
         elif self.num_deployed < 6:
             print("DEPLOYING ROOMBA")
             for zergling in self.zerg:
-                if self.zerg[zergling].deployed == True:
+                if self.zerg[zergling].deployed is True:
                     pass
                 else:
                     tempnum = self.map_num
                     print("Deploying", zergling, "to map", tempnum)
-                    #self.zerg[zergling].deployed = True
                     self.zerg[zergling].type = 'ROOMBA'
                     self.map_num += 1
                     self.num_deployed += 1
                     self.map_num = self.map_num % 3
                     return 'DEPLOY {} {}'.format(zergling, tempnum)
 
-
+        # Pass the time between deploying and retrieving.
         else:
             return 'PASS'

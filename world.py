@@ -3,11 +3,11 @@
 from map import Map
 import zerg
 
-TICKS = 100
+TICKS = 300
 
 c = zerg.Overlord(TICKS)
 
-maps = { n: Map(10, 5) for n in range(3) }
+maps = { n: Map(30, 15) for n in range(3) }
 for n in maps:
     c.add_map(n, maps[n].summary())
 
